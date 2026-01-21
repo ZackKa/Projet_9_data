@@ -39,6 +39,25 @@ services:
       - 18082:18082
       - 19092:19092
       - 19644:9644
+
+  spark:
+    image: apache/spark:3.5.8
+    container_name: spark
+    depends_on:
+      - redpanda-0
+    networks:
+      - redpanda_network
+    volumes:
+      - ./spark:/opt/spark-apps
+      - ./data:/opt/spark-data
+      - ./ivy:/opt/spark/ivy
+    environment:
+      - SPARK_SUBMIT_OPTS=-Divy.cache.dir=/opt/spark/ivy -Divy.home=/opt/spark/ivy
+    command: >
+      /opt/spark/bin/spark-submit
+      --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1
+      /opt/spark-apps/spark_streaming.py
+
   console:
     container_name: redpanda-console
     image: docker.redpanda.com/redpandadata/console:v3.5.0

@@ -1,9 +1,12 @@
-# Projet 9 – Streaming de tickets avec Redpanda et Python
+# POC – Pipeline de gestion de tickets clients en temps réel
+
+## Etape 1
 
 ## 1. Objectif
 
 Ce projet consiste à simuler un flux de tickets clients en temps réel en utilisant **Redpanda** (Kafka-compatible) et **Python**.  
 L’objectif est de produire et consommer des données de tickets pour préparer l’analyse en temps réel avec **PySpark** dans les étapes suivantes.
+Dans le cadre de la migration de l’infrastructure d’InduTechData vers AWS et Redpanda, ce projet a pour objectif de réaliser un Proof Of Concept (POC) d’un système de gestion de tickets clients en temps réel.
 
 ## 2. Prérequis
 
@@ -71,3 +74,153 @@ Ou vérifier directement dans topic que messages se sont bien importés
 - Docker Compose facilite la gestion du broker et de la console Redpanda, et évite les problèmes de configuration sur Windows.
 
 - Tous les scripts Python peuvent être lancés directement depuis l’hôte (Windows/Linux/Mac) vers le broker Redpanda exposé sur localhost:19092.
+
+## Etape 2
+
+## Architecture mise en place (Étapes 1 & 2)
+🔹 Composants
+
+Redpanda
+
+- Ingestion des tickets clients en temps réel
+
+- Topic Kafka : client_tickets (3 partitions)
+
+Producteur Python
+
+- Génération de tickets aléatoires
+
+- Envoi des messages au format JSON vers Redpanda
+
+Spark Structured Streaming
+
+- Lecture des messages Kafka
+
+- Transformation, enrichissement et agrégation
+
+- Affichage des résultats par micro-batch
+
+Redpanda Console
+
+- Visualisation des topics et des messages
+
+## Flux de données
+
+1 - Le script Python génère 200 tickets clients
+
+2 - Les tickets sont envoyés dans le topic client_tickets
+
+3 - Spark lit les messages depuis Redpanda
+
+4 - Les données JSON sont parsées en DataFrame structuré
+
+5 - Les tickets sont enrichis avec une équipe de support
+
+6 - Une agrégation calcule le nombre de tickets par type
+
+7 - Les résultats sont affichés par micro-batch dans la console Spark
+
+## Structure du projet
+
+project/
+│
+├── docker-compose.yml
+│
+├── producer/
+│   └── producer.py
+│
+├── spark/
+│   └── spark_streaming.py
+│
+├── ivy/
+│
+├── data/
+│   ├── checkpoints/
+│   └── output/
+│
+└── README.md
+
+## Dossiers techniques importants
+- 🔹 `ivy/`
+
+Ce dossier est utilisé par Apache Ivy, le gestionnaire de dépendances de Spark.
+
+👉 Il a été créé manuellement afin de :
+
+permettre à Spark de télécharger les dépendances Kafka
+
+éviter les erreurs du type /nonexistent/.ivy2/cache
+
+Ce dossier garantit le bon fonctionnement de l’option :
+
+```bash
+--packages org.apache.spark:spark-sql-kafka-0-10_2.12
+```
+
+- 🔹 `data/checkpoints/`
+
+Ce dossier est utilisé par Spark Structured Streaming pour le checkpointing.
+
+Le checkpoint permet :
+
+de mémoriser les offsets Kafka déjà consommés
+
+d’assurer la reprise après arrêt
+
+d’éviter de relire plusieurs fois les mêmes messages
+
+👉 Il est obligatoire pour un pipeline streaming fiable.
+
+
+- 🔹 `data/output/`
+
+Ce dossier est destiné à recevoir les résultats des analyses (Parquet, JSON, etc.).
+
+📌 À ce stade du projet, il est normal qu’il soit vide, car :
+
+les résultats sont actuellement affichés uniquement dans la console (format("console"))
+
+l’export vers un fichier sera réalisé à l’étape 3
+
+## Traitements réalisés avec Spark
+
+- 🔹 Parsing JSON
+
+Les messages Kafka (bytes) sont convertis en colonnes structurées via un schéma explicite.
+
+- 🔹 Enrichissement
+
+Ajout automatique d’une colonne support_team :
+
+TECHNICAL → Tech Support
+
+BILLING → Billing Team
+
+ACCOUNT → Account Management
+
+GENERAL → General Support
+
+- 🔹 Agrégation
+
+Calcul du nombre de tickets par type de demande, mis à jour en continu.
+
+## Gestion des micro-batchs
+
+Les messages sont traités en micro-batchs
+
+Un checkpoint est utilisé pour garantir l’état du streaming
+
+Le résultat final confirme la consommation des 200 tickets produits
+
+## Lancement du projet
+
+- Précision, le `docker-compose.yml` a été modifié pour intégrer Spark
+
+```bash
+docker-compose up
+```
+
+Redpanda Console est accessible à l’adresse :
+```bash
+http://localhost:8080
+```
