@@ -121,7 +121,7 @@ Redpanda Console
 7 - Les résultats sont affichés par micro-batch dans la console Spark
 
 ## Structure du projet
-
+```kotlin
 project/
 │
 ├── docker-compose.yml
@@ -139,7 +139,7 @@ project/
 │   └── output/
 │
 └── README.md
-
+```
 ## Dossiers techniques importants
 - 🔹 `ivy/`
 
@@ -224,3 +224,164 @@ Redpanda Console est accessible à l’adresse :
 ```bash
 http://localhost:8080
 ```
+
+
+## Etape 3
+
+## Architecture générale
+
+- Redpanda : broker Kafka (ingestion temps réel)
+
+- Kafka Producer (Python) : génération de tickets clients
+
+- Spark Structured Streaming (Docker) :
+
+ - lecture des messages Kafka
+
+ - enrichissement
+
+ - agrégation
+
+ - export JSON final
+
+- Docker Compose : orchestration de l’ensemble
+
+
+## 📁 Structure du projet
+```kotlin
+Projet_9_Exercice2/
+│
+├── docker-compose.yml
+├── producer.py
+│
+├── spark/
+│   └── spark_streaming.py
+│
+├── data/
+│   ├── checkpoints/
+│   │   └── client_tickets/
+│   └── output/
+│       └── client_tickets/
+│
+├── ivy/
+│
+└── README.md
+```
+
+
+### 📌 Dossiers créés manuellement
+
+- ivy/
+→ utilisé par Spark pour stocker les dépendances Maven (Kafka connector)
+
+- data/
+
+ - checkpoints/ : nécessaire au fonctionnement de Spark Streaming
+
+ - output/ : stockage des résultats
+
+     - client_tickets/ : fichier JSON final
+
+
+
+## 🔄 Étapes 2 & 3 – Traitement + Export (combinées)
+
+#### 👉 Les étapes 2 et 3 ont été regroupées volontairement dans un seul pipeline Spark, afin de :
+
+- traiter les données en streaming
+
+- exporter directement le résultat final sans script supplémentaire
+
+### Pourquoi cette approche ?
+
+Spark Structured Streaming ne permet pas l’écriture directe en JSON avec outputMode("complete")
+
+La solution recommandée est l’utilisation de foreachBatch
+
+Cela permet d’avoir :
+
+- du streaming
+
+- un DataFrame classique par batch
+
+- un export final maîtrisé
+
+## 🧠 Traitement Spark (spark_streaming.py)
+### Fonctions réalisées :
+
+1. Lecture du topic Kafka client_tickets
+
+2. Parsing JSON
+
+3. Enrichissement :
+
+- attribution d’une équipe support selon le type
+
+4. Agrégation :
+
+- nombre de tickets par type
+
+5. Export automatique des résultats finaux en JSON
+
+### Points techniques clés :
+
+`startingOffsets` = earliest → reprise des 200 messages de l’étape 1
+
+`maxOffsetsPerTrigger` = 50 → micro-batchs contrôlés
+
+`foreachBatch` → export JSON final
+
+`checkpointLocation` → reprise fiable du streaming
+
+## 📦 Export des résultats (Étape 3)
+
+Le fichier final est généré automatiquement ici :
+```bash
+data/output/client_tickets/
+└── part-00000-xxxx.json
+```
+
+Contenu final (exemple) :
+```bash
+{"type":"ACCOUNT","ticket_count":52}
+{"type":"BILLING","ticket_count":50}
+{"type":"GENERAL","ticket_count":53}
+{"type":"TECHNICAL","ticket_count":45}
+```
+
+✔ Total = 200 tickets
+✔ Tous les messages ont été traités
+✔ Aucune perte de données
+
+## 🐳 Lancement du pipeline complet
+
+Une fois les scripts prêts :
+```bash
+docker-compose up -d
+```
+
+Ce lancement :
+
+- démarre Redpanda
+
+- démarre Spark
+
+- relit les 200 messages existants
+
+- traite et exporte automatiquement les résultats
+
+## ✅ Résultat final
+
+✔ Pipeline temps réel fonctionnel
+
+✔ Traitement Spark validé
+
+✔ Export JSON conforme à l’étape 3
+
+✔ Étapes 2 et 3 correctement combinées
+
+✔ Projet entièrement reproductible avec Docker
+
+🏁 Conclusion
+
+Ces étapes du projet démontre la mise en œuvre complète d’un pipeline temps réel industriel, depuis l’ingestion Kafka jusqu’à l’export de données analysées, en s’appuyant sur des outils standards du Data Engineering moderne.
