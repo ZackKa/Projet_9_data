@@ -39,6 +39,33 @@ Flux de données :
 
 - Export JSON final
 
+---
+
+## Diagramme graphique du pipeline
+
+```mermaid
+flowchart TD
+    %% Styles
+    classDef producer fill:#FFD700,stroke:#333,stroke-width:2px,color:#000;
+    classDef kafka fill:#FF7F50,stroke:#333,stroke-width:2px,color:#fff;
+    classDef spark fill:#1E90FF,stroke:#333,stroke-width:2px,color:#fff;
+    classDef output fill:#32CD32,stroke:#333,stroke-width:2px,color:#fff;
+
+    %% Nodes
+    A[Python Producer]:::producer
+    B[Redpanda Broker - Topic client_tickets]:::kafka
+    C[Spark Structured Streaming]:::spark
+    D[Parsing & Enrichissement]:::spark
+    E[Agrégation par type de ticket]:::spark
+    F[Export JSON final dans data/output/client_tickets]:::output
+
+    %% Flèches annotées
+    A -->|Envoi messages dans Topic| B
+    B -->|Lecture en streaming| C
+    C -->|Conversion en DataFrame| D
+    D -->|Ajout support_team| E
+    E -->|Calcul ticket_count| F
+
 ## Structure du projet
 ```kotlin
 project/
