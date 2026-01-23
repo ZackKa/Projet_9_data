@@ -51,9 +51,11 @@ from kafka import KafkaProducer  # Pour produire des messages dans Kafka
 
 # Configuration Kafka / Redpanda
 producer = KafkaProducer(
-    bootstrap_servers="localhost:19092", # Adresse du serveur Kafka ou Redpanda (ici en local sur le port 19092)
+    bootstrap_servers="redpanda-0:9092",
     value_serializer=lambda v: json.dumps(v).encode("utf-8") # Fonction pour transformer les objets Python en JSON avant de les envoyer
 )
+# bootstrap_servers="localhost:19092", # Adresse du serveur Kafka ou Redpanda (ici en local sur le port 19092)
+
 
 TOPIC_NAME = "client_tickets" # Nom du topic Kafka dans lequel on va envoyer les tickets
 

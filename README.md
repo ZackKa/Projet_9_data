@@ -40,10 +40,8 @@ La console Redpanda accessible sur http://localhost:8080
 ## 4. Création d’un topic
 
 Créer un topic `client_tickets` pour stocker les tickets :
-```bash
-docker exec -it redpanda-0 rpk topic create client_tickets
-```
-Ou directement sur l'interface sur http://localhost:8080
+
+Le topic est crée automatiquement grâce au service `redpanda-init` dans `docker-compose`
 
 
 ## 5. Script Python pour produire des tickets
@@ -385,3 +383,186 @@ Ce lancement :
 🏁 Conclusion
 
 Ces étapes du projet démontre la mise en œuvre complète d’un pipeline temps réel industriel, depuis l’ingestion Kafka jusqu’à l’export de données analysées, en s’appuyant sur des outils standards du Data Engineering moderne.
+
+
+## Étape 4 – Contenerisation du pipeline ETL
+## Objectif
+
+Cette étape consiste à dockeriser l’ensemble du projet ETL :
+
+- Redpanda : broker Kafka
+
+- Producer : script générateur de tickets
+
+- Spark Streaming : traitement en temps réel des tickets
+
+- Docker Compose : orchestration automatique
+
+Résultat : un pipeline complètement automatisé, traçable et reproductible.
+
+## Structure des fichiers
+```kotlin
+.
+├── docker-compose.yml
+├── redpanda/
+│   └── Dockerfile
+├── producer/
+│   ├── Dockerfile
+│   └── producer.py
+├── spark/
+│   ├── Dockerfile
+│   └── spark_streaming.py
+├── data/
+│   ├── output/
+│   └── checkpoints/
+└── ivy/
+```
+
+## Dockerfiles
+
+#### Redpanda (redpanda/Dockerfile)
+
+- Base : docker.redpanda.com/redpandadata/redpanda:v25.3.4
+
+- Contient les commandes pour démarrer Redpanda en mode dev-container
+
+- Ports exposés et services Kafka, RPC, Schema Registry et PandaProxy
+
+#### Producer (producer/Dockerfile)
+
+- Base : python:3.10-slim
+
+- Installe kafka-python
+
+- Lance le script producer.py pour envoyer les tickets dans Kafka
+
+#### Spark (spark/Dockerfile)
+
+- Base : apache/spark:3.5.8
+
+- Copie spark_streaming.py
+
+- Lance le script Spark avec le package Kafka intégré
+
+## Lancer le pipeline
+### 1️⃣ Nettoyage complet
+
+Avant de relancer le pipeline, supprimer tous les conteneurs, volumes et images :
+```bash
+docker-compose down -v
+```
+
+Nettoyer aussi le contenu des dossiers locaux (laisser les dossiers vides) :
+```bash
+data/output/
+data/checkpoints/
+ivy/
+```
+
+⚠️ Important pour éviter :
+
+- la reprise de vieux checkpoints Spark
+
+- les conflits Ivy
+
+### 2️⃣ Relance automatique
+
+Tout le pipeline peut maintenant être lancé en une seule commande :
+```bash
+docker-compose up --build
+```
+
+Tout est automatisé :
+
+- Redpanda démarre
+
+- Le producer envoie les tickets
+
+- Spark consomme et traite les tickets
+
+- Le JSON final est généré dans data/output/client_tickets/
+
+### 3️⃣ Suivi de la progression
+
+Il y a 4 manières complémentaires de suivre ce qui se passe :
+
+#### 🟢 A. Logs du Producer
+```bash
+docker logs -f producer
+```
+
+On observe des messages comme :
+```bash
+Ticket envoyé: {'type': 'ACCOUNT', ...}
+Ticket envoyé: {'type': 'TECHNICAL', ...}
+```
+
+- Tant que ça défile → tickets en cours d’envoi
+
+- Quand ça s’arrête → les 200 tickets ont été envoyés
+
+#### 🟡 B. Logs de Spark Streaming
+```bash
+docker logs -f spark
+```
+
+Affichage typique :
+```bash
+-------------------------------------------
+Batch: 1
+-------------------------------------------
+ACCOUNT | 3
+...
+Batch: 2
+...
+```
+
+- Chaque Batch: correspond à un micro-batch Spark
+
+- Quand les chiffres se stabilisent → plus de nouveaux messages
+
+#### 🔵 C. Interface Redpanda Console (visuel)
+
+Accéder à :
+```bash
+http://localhost:8080
+```
+
+- Voir le topic `client_tickets`
+
+- Suivre le nombre de messages
+
+- Observer le lag du consommateur
+
+#### 🟣 D. Vérification du JSON final
+
+Dans le PC, vérifier :
+```bash
+data/output/client_tickets/
+```
+
+Fichiers attendus :
+
+`part-00000-*.json` → contient le résultat final agrégé
+
+`_SUCCESS` → indique la fin du job Spark
+
+Exemple de contenu JSON :
+```bash
+{"type":"ACCOUNT","ticket_count":52}
+{"type":"BILLING","ticket_count":50}
+{"type":"GENERAL","ticket_count":53}
+{"type":"TECHNICAL","ticket_count":45}
+```
+
+## 4️⃣ Conclusion
+
+Le pipeline ETL est entièrement automatisé avec Docker Compose :
+
+- Les messages sont produits dans Kafka
+
+- Ils sont consommés en streaming par Spark
+
+- Les résultats sont exportés automatiquement au format JSON
+
+- La progression est observable via les logs et l’interface Redpanda Console, ce qui rend le pipeline traçable et reproductible.
