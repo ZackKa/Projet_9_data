@@ -65,6 +65,7 @@ flowchart TD
     C -->|Conversion en DataFrame| D
     D -->|Ajout support_team| E
     E -->|Calcul ticket_count| F
+```
 
 ## Structure du projet
 ```kotlin
